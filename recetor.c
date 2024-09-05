@@ -2,6 +2,7 @@
 /* INCLUDES */
 #include <avr/io.h>
 #include <avr/interrupt.h>
+#include <stdint.h>
 
 
 /* DEFINES */
@@ -17,9 +18,24 @@
 
 
 /* MACROS */
-#define READ_PINB(pin)      	(PINB & (1 << pin))
+#define READ_PINB(pin)      	((PINB & (1 << pin)) != 0)
 #define SET_PINB_HIGH(pin) 		(PORTB |= (1 << pin))
 #define SET_PINB_LOW(pin)  		(PORTB &= ~(1 << pin))
+
+
+/* inline functions */
+static inline void set_pins_from_state(uint8_t state)
+{
+    if (state & 0b01) 
+        SET_PINB_HIGH(ENC_A_PIN);
+	else 
+        SET_PINB_LOW(ENC_A_PIN);
+
+    if (state & 0b10) 
+        SET_PINB_HIGH(ENC_B_PIN);
+	else 
+        SET_PINB_LOW(ENC_B_PIN);
+}
 
 
 /* FUNCTIONS */
@@ -63,24 +79,22 @@ ISR(PCINT0_vect)
         
         if (high_time <= DIV_STATE_0) 
 		{
-            SET_PINB_LOW(ENC_A_PIN);
-			SET_PINB_LOW(ENC_B_PIN);
+            state = 0;
         } 
 		else if (high_time <= DIV_STATE_1) 
 		{
-			SET_PINB_HIGH(ENC_A_PIN);
-            SET_PINB_LOW(ENC_B_PIN);
+			state = 1;
         } 
 		else if (high_time <= DIV_STATE_2) 
 		{
-			SET_PINB_LOW(ENC_A_PIN);
-			SET_PINB_HIGH(ENC_B_PIN);
+			state = 2;
         } 
 		else 
 		{
-            SET_PINB_HIGH(ENC_A_PIN);
-			SET_PINB_HIGH(ENC_B_PIN);
+            state = 3;
         }
+		
+		set_pins_from_state(state);
     }
 }
 
