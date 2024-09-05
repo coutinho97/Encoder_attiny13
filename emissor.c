@@ -2,6 +2,8 @@
 /* INCLUDES */
 #include <avr/io.h>
 #include <avr/interrupt.h>
+#include <stdint.h>
+#include <stdbool.h>
 
 
 /* DEFINES */
@@ -21,8 +23,13 @@
 #define SET_DUTY_CYCLE(duty)	(OCR0A = duty)
 
 
+/* global variable */
+static const uint8_t LUT_DUTY_STATE[4] = {DIV_STATE_0, DIV_STATE_1, DIV_STATE_2, DIV_STATE_3};
+static volatile uint8_t state = 0;
+
+
 /* FUNCTIONS */
-void pwm_init() 
+void pwm_init()
 {
     // Configura o pino PWM como saída
     DDRB |= (1 << PWM_OUT_PIN);
@@ -32,6 +39,9 @@ void pwm_init()
     
     // Prescaler de 8 para aproximar 5kHz
     TCCR0B |= (1 << CS01);
+	
+	// Habilita interrupção por comparação de saída (OCR0A)
+    TIMSK0 |= (1 << OCIE0A);
 }
 
 void pin_change_interrupt_init() 
@@ -49,37 +59,14 @@ void pin_change_interrupt_init()
 
 ISR(PCINT0_vect) 
 {
-    uint8_t enc_a = READ_PINB(ENC_A_PIN);
-    uint8_t enc_b = READ_PINB(ENC_B_PIN);
-	uint8_t state = (enc_a << 1) | enc_b;
-	
-	switch (state)
-	{
-		case 0b00:
-		
-			SET_DUTY_CYCLE(DIV_STATE_0); 
-		break;
-		
-		case 0b01:
-		
-			SET_DUTY_CYCLE(DIV_STATE_1); 
-		break;
-		
-		case 0b10:
-			
-			SET_DUTY_CYCLE(DIV_STATE_2); 
-		break;
-		
-		case 0b11:
-		
-			SET_DUTY_CYCLE(DIV_STATE_3); 
-		break;
-		
-		default:
-			
-			// unexpected
-		break;
-	}
+    bool enc_a = READ_PINB(ENC_A_PIN);
+    bool enc_b = READ_PINB(ENC_B_PIN);
+	state = (enc_a << 1) | enc_b;
+}
+
+ISR(TIMER0_COMPA_vect)
+{
+	SET_DUTY_CYCLE(LUT_DUTY_STATE[state]);
 }
 
 int main(void) 
